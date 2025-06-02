@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz d'Attribution d'Équipe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        h2 {
+            color: #444;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .question {
+            font-size: 1.3em;
+            color: #555;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        select {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .group-result {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .group-name {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .colleagues-list {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .colleagues-list h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .colleagues-list ul {
+            list-style: none;
+            text-align: left;
+        }
+
+        .colleagues-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1.1em;
+        }
+
+        .colleagues-list li:last-child {
+            border-bottom: none;
+        }
+
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 1em;
+        }
+
+        .loading {
+            color: #667eea;
+            font-style: italic;
+            margin: 10px 0;
+        }
+
+        .firebase-status {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .firebase-status.connected {
+            color: #27ae60;
+        }
+
+        .firebase-status.error {
+            color: #e74c3c;
+        }
+
+        .team-full-notice {
+            background: rgba(255, 193, 7, 0.2);
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Page de Saisie du Nom -->
+        <div id="namePage" class="page active">
+            <h1>Bienvenue à l'Attribution d'Équipe</h1>
+            <div id="firebaseStatus" class="firebase-status">Connexion à la base de données...</div>
+            <div class="question">Entrez votre nom pour commencer :</div>
+            <input type="text" id="nameInput" placeholder="Votre nom complet" maxlength="50">
+            <div id="nameError" class="error"></div>
+            <button id="continueBtn" onclick="proceedToQuiz()" disabled>Continuer</button>
+        </div>
+
+        <!-- Page du Quiz -->
+        <div id="quizPage" class="page">
+            <h2>Quiz d'Attribution d'Équipe</h2>
+            <div class="question">
+                Si vous deviez résoudre UN SEUL de ces problèmes techniques pour la barrière du parking automatique, lequel vous motiverait le plus ?
+            </div>
+            <select id="answerSelect">
+                <option value="">Choisissez votre réponse...</option>
+                <option value="group1">La conception</option>
+                <option value="group1">L'usinage</option>
+                <option value="group1">La RDM</option>
+                <option value="group2">L'alimentation</option>
+                <option value="group2">Le câblage</option>
+                <option value="group2">L'intégration des composants</option>
+                <option value="group3">La programmation</option>
+                <option value="group3">L'algorithmique</option>
+                <option value="group3">Travail séquentiel</option>
+                <option value="group4">La fabrication</option>
+                <option value="group4">Le Test</option>
+                <option value="group4">L'optimisation</option>
+            </select>
+            <div id="quizError" class="error"></div>
+            <button id="submitBtn" onclick="submitAnswer()">Soumettre la Réponse</button>
+        </div>
+
+        <!-- Page des Résultats -->
+        <div id="resultsPage" class="page">
+            <h2>Votre Attribution d'Équipe</h2>
+            <div id="groupResult" class="group-result">
+                <div id="groupName" class="group-name"></div>
+                <div id="welcomeMessage"></div>
+                <div id="teamFullNotice" class="team-full-notice" style="display: none;">
+                    Cette équipe est maintenant complète ! Vous avez été assigné à une équipe alternative.
+                </div>
+                <div class="colleagues-list">
+                    <h3>Vos Coéquipiers :</h3>
+                    <div id="loadingMessage" class="loading">Chargement des membres de l'équipe...</div>
+                    <ul id="colleaguesList"></ul>
+                </div>
+            </div>
+            <button onclick="startOver()">Refaire le Quiz</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, push, onValue, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        
+        const firebaseConfig = {
+    apiKey: "AIzaSyDSno2z-7MivJr4I1BvdW64PdfFRC6xtjI",
+    authDomain: "teamquiz-d8b0a.firebaseapp.com",
+    databaseURL: "https://teamquiz-d8b0a-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "teamquiz-d8b0a",
+    storageBucket: "teamquiz-d8b0a.firebasestorage.app",
+    messagingSenderId: "808448075650",
+    appId: "1:808448075650:web:5de39fe3734a7618a8d19b",
+    measurementId: "G-62F2Q5X0HW"
+  };
+
+        // Initialize Firebase
+        let app, database;
+        let firebaseReady = false;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+            updateFirebaseStatus('Connecté à la base de données', 'connected');
+            firebaseReady = true;
+            document.getElementById('continueBtn').disabled = false;
+        } catch (error) {
+            console.error('Erreur d\'initialisation Firebase:', error);
+            updateFirebaseStatus('Échec de connexion à la base de données - Veuillez vérifier votre connexion internet', 'error');
+            firebaseReady = false;
+            // Keep continue button disabled if Firebase fails
+        }
+
+        // Make Firebase functions available globally
+        window.database = database;
+        window.firebaseReady = firebaseReady;
+        window.firebaseRef = ref;
+        window.firebasePush = push;
+        window.firebaseOnValue = onValue;
+        window.serverTimestamp = serverTimestamp;
+
+        function updateFirebaseStatus(message, type) {
+            const statusEl = document.getElementById('firebaseStatus');
+            statusEl.textContent = message;
+            statusEl.className = `firebase-status ${type}`;
+        }
+    </script>
+
+    <script>
+        // Données des équipes
+        const teams = {
+            group1: {
+                name: "TEAM Méca",
+                description: "Spécialistes haute performance qui excellent sous pression",
+                maxMembers: 7
+            },
+            group2: {
+                name: "TEAM Elec",
+                description: "Équipiers collaboratifs qui créent des relations solides",
+                maxMembers: 7
+            },
+            group3: {
+                name: "TEAM Code",
+                description: "Professionnels axés sur les détails qui valorisent la structure et la précision",
+                maxMembers: 6
+            },
+            group4: {
+                name: "TEAM Réalisation",
+                description: "Visionnaires créatifs qui repoussent les limites et pensent différemment",
+                maxMembers: 6
+            }
+        };
+
+        let currentUserName = "";
+
+        function proceedToQuiz() {
+            const nameInput = document.getElementById('nameInput');
+            const nameError = document.getElementById('nameError');
+            const name = nameInput.value.trim();
+
+            if (!firebaseReady) {
+                nameError.textContent = "Connexion à la base de données requise. Veuillez actualiser la page.";
+                return;
+            }
+
+            if (!name) {
+                nameError.textContent = "Veuillez entrer votre nom";
+                return;
+            }
+
+            if (name.length < 2) {
+                nameError.textContent = "Veuillez entrer un nom valide";
+                return;
+            }
+
+            currentUserName = name;
+            nameError.textContent = "";
+            showPage('quizPage');
+        }
+
+        function getTeamCounts() {
+            if (!window.firebaseReady || !window.database) {
+                return Promise.reject(new Error("Base de données non disponible"));
+            }
+
+            return new Promise((resolve, reject) => {
+                const usersRef = window.firebaseRef(window.database, 'users');
+                window.firebaseOnValue(usersRef, (snapshot) => {
+                    const users = snapshot.val();
+                    const counts = { group1: 0, group2: 0, group3: 0, group4: 0 };
+                    
+                    if (users) {
+                        Object.values(users).forEach(user => {
+                            if (counts[user.group] !== undefined) {
+                                counts[user.group]++;
+                            }
+                        });
+                    }
+                    resolve(counts);
+                }, {
+                    onlyOnce: true
+                }, (error) => {
+                    reject(error);
+                });
+            });
+        }
+
+        function findAvailableGroup(preferredGroup) {
+            return getTeamCounts().then(counts => {
+                // Check if preferred group has space
+                if (counts[preferredGroup] < teams[preferredGroup].maxMembers) {
+                    return { group: preferredGroup, wasReassigned: false };
+                }
+
+                // Find alternative group with space
+                const groupPriority = ['group1', 'group2', 'group3', 'group4'];
+                for (const group of groupPriority) {
+                    if (counts[group] < teams[group].maxMembers) {
+                        return { group: group, wasReassigned: true };
+                    }
+                }
+
+                // If all groups are full, assign to preferred group anyway
+                return { group: preferredGroup, wasReassigned: false };
+            });
+        }
+
+        async function submitAnswer() {
+            const select = document.getElementById('answerSelect');
+            const quizError = document.getElementById('quizError');
+            const submitBtn = document.getElementById('submitBtn');
+            const selectedGroup = select.value;
+
+            if (!selectedGroup) {
+                quizError.textContent = "Veuillez sélectionner une réponse";
+                return;
+            }
+
+            if (!window.firebaseReady || !window.database) {
+                quizError.textContent = "Connexion à la base de données requise pour soumettre votre réponse.";
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Soumission en cours...";
+
+            try {
+                const assignment = await findAvailableGroup(selectedGroup);
+                const finalGroup = assignment.group;
+
+                // Save to Firebase
+                const usersRef = window.firebaseRef(window.database, 'users');
+                await window.firebasePush(usersRef, {
+                    name: currentUserName,
+                    group: finalGroup,
+                    originalChoice: selectedGroup,
+                    wasReassigned: assignment.wasReassigned,
+                    timestamp: window.serverTimestamp()
+                });
+
+                quizError.textContent = "";
+                showResults(finalGroup, assignment.wasReassigned);
+            } catch (error) {
+                console.error('Erreur lors de la sauvegarde de l\'utilisateur:', error);
+                quizError.textContent = "Erreur lors de la sauvegarde de votre réponse. Veuillez réessayer.";
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Soumettre la Réponse";
+            }
+        }
+
+        function showResults(groupKey, wasReassigned = false) {
+            const team = teams[groupKey];
+            const groupName = document.getElementById('groupName');
+            const welcomeMessage = document.getElementById('welcomeMessage');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const colleaguesList = document.getElementById('colleaguesList');
+            const teamFullNotice = document.getElementById('teamFullNotice');
+
+            groupName.textContent = team.name;
+            welcomeMessage.innerHTML = `
+                <p>Bienvenue ${currentUserName} !</p>
+                <p>${team.description}</p>
+            `;
+
+            // Show reassignment notice if applicable
+            if (wasReassigned) {
+                teamFullNotice.style.display = 'block';
+            } else {
+                teamFullNotice.style.display = 'none';
+            }
+
+            showPage('resultsPage');
+
+            // Load team members from Firebase
+            loadTeamMembersFromFirebase(groupKey);
+        }
+
+        function loadTeamMembersFromFirebase(groupKey) {
+            if (!window.firebaseReady || !window.database) {
+                displayTeamMembers([], "Erreur de connexion à la base de données");
+                return;
+            }
+
+            const usersRef = window.firebaseRef(window.database, 'users');
+            window.firebaseOnValue(usersRef, (snapshot) => {
+                const users = snapshot.val();
+                const groupMembers = [];
+
+                if (users) {
+                    Object.values(users).forEach(user => {
+                        if (user.group === groupKey) {
+                            groupMembers.push(user.name);
+                        }
+                    });
+                }
+
+                displayTeamMembers(groupMembers);
+            }, (error) => {
+                console.error('Erreur lors du chargement des membres:', error);
+                displayTeamMembers([], "Erreur lors du chargement des membres de l'équipe");
+            });
+        }
+
+        function displayTeamMembers(groupMembers, errorMessage = null) {
+            const loadingMessage = document.getElementById('loadingMessage');
+            const colleaguesList = document.getElementById('colleaguesList');
+            const welcomeMessage = document.getElementById('welcomeMessage');
+
+            loadingMessage.style.display = 'none';
+            colleaguesList.innerHTML = '';
+
+            if (errorMessage) {
+                const li = document.createElement('li');
+                li.textContent = errorMessage;
+                li.style.fontStyle = 'italic';
+                li.style.color = '#e74c3c';
+                colleaguesList.appendChild(li);
+                return;
+            }
+
+            if (groupMembers.length === 0) {
+                const li = document.createElement('li');
+                li.textContent = "Vous êtes le premier membre de cette équipe !";
+                li.style.fontStyle = 'italic';
+                colleaguesList.appendChild(li);
+            } else {
+                // Remove duplicates and sort
+                const uniqueMembers = [...new Set(groupMembers)].sort();
+                
+                uniqueMembers.forEach(member => {
+                    const li = document.createElement('li');
+                    if (member === currentUserName) {
+                        li.textContent = `${member} (Vous)`;
+                        li.style.fontWeight = 'bold';
+                    } else {
+                        li.textContent = member;
+                    }
+                    colleaguesList.appendChild(li);
+                });
+            }
+
+            // Show group size
+            const countMessage = document.createElement('p');
+            countMessage.style.marginTop = '15px';
+            countMessage.style.fontSize = '0.9em';
+            countMessage.style.opacity = '0.8';
+            countMessage.textContent = `Taille de l'équipe : ${groupMembers.length} membre${groupMembers.length !== 1 ? 's' : ''}`;
+            
+            // Remove existing count message if any
+            const existingCount = welcomeMessage.querySelector('.team-count');
+            if (existingCount) {
+                existingCount.remove();
+            }
+            
+            countMessage.className = 'team-count';
+            welcomeMessage.appendChild(countMessage);
+        }
+
+        function showPage(pageId) {
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        function startOver() {
+            currentUserName = "";
+            document.getElementById('nameInput').value = "";
+            document.getElementById('answerSelect').value = "";
+            document.getElementById('nameError').textContent = "";
+            document.getElementById('quizError').textContent = "";
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('submitBtn').textContent = "Soumettre la Réponse";
+            document.getElementById('loadingMessage').style.display = 'block';
+            document.getElementById('teamFullNotice').style.display = 'none';
+            showPage('namePage');
+        }
+
+        // Allow Enter key to proceed
+        document.getElementById('nameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                proceedToQuiz();
+            }
+        });
+    </script>
+</body>
+</html>
